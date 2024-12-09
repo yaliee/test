@@ -9,7 +9,14 @@ import string
 import matplotlib.pyplot as plt
 from operator import itemgetter
 from pprint import pprint
+import numpy as np
 
+
+def to_rack(dd):
+    for sl in dd:
+        for i in sl:
+            print i/64,
+        print
 
 if __name__ == "__main__":
     '''
@@ -18,11 +25,19 @@ if __name__ == "__main__":
     pp = 16
     ep = 1
     '''
+    '''
     tp = 32
     dp = 8
     pp = 8
     ep = 4
+    '''
+    tp = 32
+    dp = 32
+    pp = 2
+    ep = 8
     npu= tp*dp*pp
+
+    rack_num= npu/64
     #npu = 64
     #tp = 8
     #dp = 4
@@ -39,6 +54,16 @@ if __name__ == "__main__":
     DP=[]
     PP=[]
     tmp=[]
+
+    comm_graph={}
+
+    for x in range(rack_num):
+        for y in range(rack_num):
+            comm_graph[str(x)+'_'+str(y)] = {'dp':0, 'ep':0, 'sp':0, 'pp':0, 'all':0, 'tp':0}
+
+    #new_comm_graph=dict(sorted(comm_graph.items()))
+    #print comm_graph
+
     sys.stdout = tp_log_file
     print "=======================TP start1"
     for j in range(npu):
@@ -49,7 +74,6 @@ if __name__ == "__main__":
             if len(tmp) != 0:
                 TP.append(tmp)
             tmp=[j]
-
         #print tmp
         #print TP
 
@@ -77,15 +101,23 @@ if __name__ == "__main__":
 
     #pprint(DP)
 
-    print "=======================DP start2"
     print('\n'.join(' '.join(map(str,sl)) for sl in DP))
     print len(DP)
 
-    for sl in DP:
-        for i in sl:
-            print i/64,
-        print
+    print "=======================DP start2"
 
+    to_rack(DP)
+
+    #ring
+    for sl in DP:
+        for i in range(dp):
+            source = i
+            dest = (i+1)%dp
+            key=str(sl[source]/64) + '_' + str(sl[dest]/64)
+            comm_graph[key]['dp'] +=1
+
+
+    print comm_graph
     print "=======================DP over"
 
     #sp=2
@@ -93,8 +125,6 @@ if __name__ == "__main__":
     for i in DP:
         SP.append(i[0:32])
         SP.append(i[32:64])
-        
-
 
     print('\n'.join(' '.join(map(str,sl)) for sl in SP))
     print len(SP)
@@ -111,14 +141,18 @@ if __name__ == "__main__":
     print('\n'.join(' '.join(map(str,sl)) for sl in EP))
     print len(SP)
     print "=======================EP start2"
-
+    to_rack(EP)
+    #mesh
     for sl in EP:
-        for i in sl:
-            print i/64,
-        print
+        for x in range(ep):
+            for y in range(ep):
+                source = x
+                dest = y
+                key=str(sl[source]/64) + '_' + str(sl[dest]/64)
+                comm_graph[key]['ep'] +=1
 
+    print comm_graph
     print "=======================EP over"
-
 
 
     sys.stdout = pp_log_file
@@ -142,10 +176,44 @@ if __name__ == "__main__":
 
     print('\n'.join(' '.join(map(str,sl)) for sl in PP))
     print len(PP)
+
     print "=======================PP over1"
+    to_rack(PP)
+    #ring
     for sl in PP:
-        for i in sl:
-            print i/64,
-        print
+        for i in range(pp):
+            if i == (pp-1):
+                break
+            source = i
+            dest = (i+1)
+            key=str(sl[source]/64) + '_' + str(sl[dest]/64)
+            comm_graph[key]['pp'] +=1
+
+    print comm_graph
     print "=======================PP over2"
 
+    sys.stdout = old_stdout
+
+    comm_link_max = 0
+    for sl in comm_graph:
+        comm_graph[sl]['all'] = comm_graph[sl]['pp'] + comm_graph[sl]['tp'] + comm_graph[sl]['ep'] + comm_graph[sl]['dp']
+        tmp=sl.split("_")
+        #just get link between rack
+        if comm_graph[sl]['all'] != 0 and tmp[0] != tmp[1]:
+            print sl,comm_graph[sl]['all']
+            comm_link_max += comm_graph[sl]['all']
+
+    print comm_graph
+    data = np.zeros((rack_num, rack_num))
+    
+    for x in range(rack_num):
+        for y in range(rack_num):
+            tmp=comm_graph[str(x)+'_'+str(y)]['all']
+            data[x,y] = tmp
+            if x != y and tmp != 0:
+                print x,y,float(comm_graph[str(x)+'_'+str(y)]['all'] * 32*256)/ comm_link_max
+            
+    #print data
+    plt.imshow(data, cmap='hot')
+    plt.colorbar()
+    plt.show()
