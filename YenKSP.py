@@ -120,7 +120,7 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
             #wyl add, skip Dnode in rack if comm between different racks
             ss=(source)//128
             tt=(target)//128
-            print("ss", ss, "tt", tt);
+            #print("ss", ss, "tt", tt);
             if ss!=tt:
                 D_range=range(ss*128,  ss*128+num_D_node)
                 if ss in D_range:
@@ -284,7 +284,7 @@ for n in range(rack_num):
     for test_num in test_num_list:
         print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
 
-    # between rack
+    # 2D between rack
     L2_union_range=range(num_D_node+ num_l1_union_node, num_D_node+ num_l1_union_node + num_l2_union_node)
     L2_union_start=num_D_node+ num_l1_union_node
 
@@ -300,6 +300,8 @@ for n in range(rack_num):
             print("conn", (xx)//128, xx%128, (int)(yy)//128, yy%128, index1, index2)
             index1 = (index1+1)% num_l2_union_node
             index2 = (index2)% num_l2_union_node
+
+    # 1.5 D
 
 for test_num in test_num_list:
     print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
@@ -327,17 +329,26 @@ print(G.has_edge(65, 1))
 #for e in G.edges():
 #    print(e)
 
+print("=====================")
 ret=yenksp(G, 1, 9, 10, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
+print("=====================")
 ret=yenksp(G, 2, 73, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
+print("=====================")
 ret=yenksp(G2, 1, 9, 10, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
+print("=====================")
 #ret=yenksp(G2, 1, 9, 10)
 #print(ret)
 ret=yenksp(G2, 2, 73, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
+print("=====================")
 ret=yenksp(G2, 2, 1000, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
+print("=====================")
 ret=yenksp(G2, 0, 128, 11, shortest_path_func=dijkstra_with_builtin_heap)
+print(ret)
+print("=====================")
+ret=yenksp(G2, 0, 1, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)

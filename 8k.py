@@ -33,7 +33,7 @@ if __name__ == "__main__":
     '''
     tp = 32
     dp = 32
-    pp = 2
+    pp = 1
     ep = 8
     npu= tp*dp*pp
 
@@ -140,6 +140,12 @@ if __name__ == "__main__":
 
     print('\n'.join(' '.join(map(str,sl)) for sl in EP))
     print len(SP)
+
+    #tmp
+    for sl in EP:
+        if sl[0]<64:
+            print sl
+
     print "=======================EP start2"
     to_rack(EP)
     #mesh
@@ -203,7 +209,7 @@ if __name__ == "__main__":
             print sl,comm_graph[sl]['all']
             comm_link_max += comm_graph[sl]['all']
 
-    print comm_graph
+    #print comm_graph
     data = np.zeros((rack_num, rack_num))
     
     for x in range(rack_num):
@@ -211,7 +217,7 @@ if __name__ == "__main__":
             tmp=comm_graph[str(x)+'_'+str(y)]['all']
             data[x,y] = tmp
             if x != y and tmp != 0:
-                print x,y,float(comm_graph[str(x)+'_'+str(y)]['all'] * 32*256)/ comm_link_max
+                print x,y,float(comm_graph[str(x)+'_'+str(y)]['all'] * 32*224)/ comm_link_max
             
     #print data
     plt.imshow(data, cmap='hot')
