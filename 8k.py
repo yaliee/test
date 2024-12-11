@@ -217,7 +217,7 @@ if __name__ == "__main__":
             tmp=comm_graph[str(x)+'_'+str(y)]['all']
             data[x,y] = tmp
             if x != y and tmp != 0:
-                print x,y,float(comm_graph[str(x)+'_'+str(y)]['all'] * 32*224)/ comm_link_max
+                print x,y,float(comm_graph[str(x)+'_'+str(y)]['all'] * rack_num * (256-rack_num))/ comm_link_max
             
     #print data
     plt.imshow(data, cmap='hot')
