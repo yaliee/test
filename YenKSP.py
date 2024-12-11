@@ -109,6 +109,7 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
     edge_weight, adjascent = construct(G, weight=weight)
     for _ in range(k):
         if prev_path is None:
+            print("prev_path None")
             length, path = shortest_path_func(adjascent, source, target, edge_weight)
             if isinstance(path, list):
                 listB.push(length, path)
@@ -121,30 +122,86 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
             ss=(source)//128
             tt=(target)//128
             #print("ss", ss, "tt", tt);
-            if ss!=tt:
-                D_range=range(ss*128,  ss*128+num_D_node)
-                if ss in D_range:
-                    tmp=G2.in_edges(source)
-                    for xx in tmp:
-                        if xx[0] in D_range and xx[1] in D_range:
-                            for sl in xx:
-                                if sl != source:
-                                    ignore_nodes.add(sl)
-            
+
+            # if conn between different rack, ignore Dnode path in same rack
+            for node in [source, target]:
+                if ss!=tt:
+                    D_range=range(node//128*128,  node//128*128+num_D_node)
+                    if node in D_range:
+                        tmp = G.in_edges(node)
+                        for xx in tmp:
+                            #print("xx ", node, xx)
+                            if xx[0] in D_range and xx[1] in D_range:
+                                for sl in xx:
+                                    if sl != node and sl not in ignore_nodes:
+                                        #print("add ", sl)
+                                        ignore_nodes.add(sl)
+
             ignore_edges = set()
+
+            '''
+            #ignore source down edge
+            L1_start=target//128*128 + num_D_node
+            L2_start=target//128*128 + num_D_node + num_l1_union_node
+            for nr in range(0, rail):
+                for x in range(L1_start+ nr*d_columns, L1_start+d_columns*(nr+1)):
+                    for y in range(L2_start + nr*d_columns, L2_start + d_columns*(nr+1)):
+                        ignore_edges.add((x,y))
+                        #print("conn", x, y)
+
+            #ignore dest up edge
+            L1_start=source//128*128 + num_D_node
+            L2_start=source//128*128 + num_D_node + num_l1_union_node
+            for nr in range(0, rail):
+                for x in range(L1_start+ nr*d_columns, L1_start+d_columns*(nr+1)):
+                    for y in range(L2_start + nr*d_columns, L2_start + d_columns*(nr+1)):
+                        ignore_edges.add((y,x))
+            '''
+
+            #reserve only 1 path between L1 L2 in other racks
+            for nrank in range(0, rack_num):
+                L1_start=nrank*num_per_rack_node + num_D_node
+                L2_start=nrank*num_per_rack_node + num_D_node + num_l1_union_node
+
+                #if nrank !=ss and nrank != tt:
+                for nr in range(0, rail):
+                    for x in range(L1_start+ nr*d_columns, L1_start+d_columns*(nr+1)):
+                        for y in range(L2_start + nr*d_columns, L2_start + d_columns*(nr+1)):
+                            #ignore source down edge
+                            if nrank == ss:
+                                ignore_edges.add((y,x))
+                            #ignore dest up edge
+                            elif nrank == tt:
+                               ignore_edges.add((x,y))
+                            #reserve only 1 path between L1 L2 in other racks
+                            else:
+                                if y%128 != 96 and x%128 !=64:
+                                    ignore_edges.add((y,x))
+                                    ignore_edges.add((x,y))
+
+                
+            
             for i in range(1, len(prev_path)):
                 root = prev_path[:i]
+                #print(i, "root", root)
                 root_length = sum([edge_weight[(u,v)] for u,v in zip(root, root[1:])])
                 for path in listA:
                     if path[:i] == root:
                         ignore_edges.add((path[i-1],path[i]))
+                #print(i, "root ignore", ignore_edges, ignore_nodes)
+
+                #print(i, "compute", root[-1], target)
                 length, supr = shortest_path_func(adjascent, root[-1], target, edge_weight, ignore_node=ignore_nodes, ignore_edge=ignore_edges)
+                #print(i, "get", supr)
                 if isinstance(supr, list):
                     listB.push(root_length+length, root[:-1]+supr)
+                    #print(i, 'listB', listB.sortedpaths)
                 ignore_nodes.add(root[-1])
+
         if listB:
             listA.append(listB.pop())
             prev_path = listA[-1]
+            print("update listA", listA)
         else:
             break
     return listA
@@ -172,7 +229,7 @@ class PathBuffer:
         return path
 
 
-
+# simple way
 #G  = nx.Graph()
 G  = nx.DiGraph()
 
@@ -247,7 +304,7 @@ for n in range(rack_num):
     current_rack_node_range=node_list[(n)*num_per_rack_node:(n+1)*num_per_rack_node]
     print("rack ", n, current_rack_node_range)
 
-    # 横排
+    # 横排 mesh
     for l in range(1, d_columns+1):
         for x in range(d_row*(l-1), d_row*l):
             for y in range(d_row*(l-1), d_row*l):
@@ -257,7 +314,7 @@ for n in range(rack_num):
     for test_num in test_num_list:
         print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
 
-    # 纵排Ｄ and L1 union
+    # 纵排Ｄ mesh and connect L1 union
     for nr in range(0, rail):
         for l in range(0, d_columns):
             print(num_D_node, l, nr, d_columns)
@@ -273,7 +330,7 @@ for n in range(rack_num):
     for test_num in test_num_list:
         print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
 
-    # L1 and L2 union
+    # mesh between L1 and L2 union
     for nr in range(0, rail):
         for x in range(num_D_node + nr*d_columns, num_D_node+d_columns*(nr+1)):
             for y in range(num_D_node+ num_l1_union_node + nr*d_columns, num_D_node+ num_l1_union_node + d_columns*(nr+1)):
@@ -301,7 +358,7 @@ for n in range(rack_num):
             index1 = (index1+1)% num_l2_union_node
             index2 = (index2)% num_l2_union_node
 
-    # 1.5 D
+    # TODO,1.5 D
 
 for test_num in test_num_list:
     print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
@@ -328,7 +385,7 @@ print(G.has_edge(65, 1))
 
 #for e in G.edges():
 #    print(e)
-
+'''
 print("=====================")
 ret=yenksp(G, 1, 9, 10, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
@@ -344,11 +401,18 @@ print("=====================")
 ret=yenksp(G2, 2, 73, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
 print("=====================")
-ret=yenksp(G2, 2, 1000, 11, shortest_path_func=dijkstra_with_builtin_heap)
+ret=yenksp(G2, 2, 1024, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
 print("=====================")
 ret=yenksp(G2, 0, 128, 11, shortest_path_func=dijkstra_with_builtin_heap)
 print(ret)
 print("=====================")
-ret=yenksp(G2, 0, 1, 11, shortest_path_func=dijkstra_with_builtin_heap)
-print(ret)
+'''
+ret=yenksp(G2, 0, 2*128+1, 33, shortest_path_func=dijkstra_with_builtin_heap)
+
+print("=====================", len(ret))
+for path in ret:
+    print(path, end="")
+    for n in path:
+        print(n//128, ',',end="")
+    print()
