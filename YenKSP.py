@@ -109,7 +109,7 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
     edge_weight, adjascent = construct(G, weight=weight)
     for _ in range(k):
         if prev_path is None:
-            print("prev_path None")
+            print("prev_path None=================")
             length, path = shortest_path_func(adjascent, source, target, edge_weight)
             if isinstance(path, list):
                 listB.push(length, path)
@@ -166,29 +166,48 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
                                 for sy in sl:
                                     if sy != x and sy not in range(L2_start + nr*d_columns, L2_start + d_columns*(nr+1)) and sy not in ignore_nodes:
                                         ignore_nodes.add(sy)
+
+
+            # remove add EP mesh routing
+
                             
             for i in range(1, len(prev_path)):
                 root = prev_path[:i]
-                print(i, "root", root)
+                #print(i, "root", root)
                 root_length = sum([edge_weight[(u,v)] for u,v in zip(root, root[1:])])
                 for path in listA:
                     if path[:i] == root:
                         ignore_edges.add((path[i-1],path[i]))
-                        print(i,"ignore edges", path[i-1],path[i] )
+                        #print(i,"ignore edges", path[i-1],path[i] )
                 #print(i, "root ignore", ignore_edges, ignore_nodes)
 
-                print(i, "compute", root[-1], target)
+                #print(i, "compute", root[-1], target)
                 length, supr = shortest_path_func(adjascent, root[-1], target, edge_weight, ignore_node=ignore_nodes, ignore_edge=ignore_edges)
-                print(i, "get", supr)
+                #print(i, "get", supr)
                 if isinstance(supr, list):
-                    listB.push(root_length+length, root[:-1]+supr)
-                    print(i, 'listB===>', listB.sortedpaths)
+                    #remove EP mesh routing
+                    remove=0
+                    '''
+                    for n in range(len(supr)):
+                        if n < len(supr)-1:
+                            sn=supr[n]//128
+                            sn1=supr[n+1]//128
+                            if sn != sn1 and sn//4 == sn1//4:
+                                # TODO: just print here now
+                                #remove=1
+                                print('n', n, sn, sn1, sn//4, sn1//4)
+                    '''
+
+                    #length jump limit
+                    if remove ==0 and len(supr) + len(root[:-1]) <= 9:
+                        listB.push(root_length+length, root[:-1]+supr)
+                        #print(i, 'listB===>', listB.sortedpaths)
                 ignore_nodes.add(root[-1])
 
         if listB:
             listA.append(listB.pop())
             prev_path = listA[-1]
-            print("update listA", listA)
+            #print("update listA", listA)
         else:
             break
     return listA
@@ -302,7 +321,7 @@ for n in range(rack_num):
     # 纵排Ｄ mesh and connect L1 union
     for nr in range(0, rail):
         for l in range(0, d_columns):
-            print(num_D_node, l, nr, d_columns)
+            #print(num_D_node, l, nr, d_columns)
             union =  num_D_node + l + nr*d_columns
             for x in range(0+l, d_columns*d_row+l, d_columns):
                 # L2 union
@@ -682,13 +701,7 @@ ep_comm=[
 [1823,1855,1887,1919,1951,1983,2015,2047],
 ]
 
-#build flow
-#for n in range(0, rack_num, 4):
-#    for x in range(n, n+4):
-#        for y in range(n, n+4):
-
 test_cases=[]
-
 #note 64 between the comm get from 8k python shell, convert to 128
 for mesh in ep_comm:
     for x in mesh:
@@ -697,9 +710,23 @@ for mesh in ep_comm:
                 source = x%64 + x//64*128
                 dest = y%64 + y//64*128
                 test_cases.append((source, dest, 31))
-print( len(test_cases) )
+print("test case len", len(test_cases) )
 
-#just for debug
+test_cases=[]
+for mesh in ep_comm:
+    #print(mesh, mesh[::2])
+    for x in mesh[::2]:
+        for y in mesh[::2]:
+            if x!=y and x//64 != y//64:
+                source = x%64 + x//64*128
+                dest = y%64 + y//64*128
+                test_cases.append((source, dest, 31))
+                print(source//128, dest//128)
+print("test case len", len(test_cases) )
+
+#exit(0) 
+
+#just for verify
 n=0
 for test in test_cases:
     if test[0]//128 == 0 and test[1]//128 == 1:
@@ -707,21 +734,85 @@ for test in test_cases:
         n+=1
 print('0-1', n)
 
-
+'''
 test_cases=[
-#(1025,1,31),
-#(1025,1153,31), 
-#(1,128,31),
-(1025,128,61), 
+(1,128,31),
+(1,256,31),
+(1,384,31),
+#(1025,128,61), 
 #(1089,128,31), 
 ]
+'''
 
+iteraton=0
+path_log={}
 for test in test_cases:
+    iteraton+=1
+    print("iteration -=============************************************>", iteraton)
+    path_log[str(test[0])+'_'+str(test[1])]=[]
     ret=yenksp(G2, test[0], test[1], test[2], shortest_path_func=dijkstra_with_builtin_heap)
         
+    num=0
     for path in ret:
-        print(path, 'len=', len(path), "|",end="")
+        remove=0
+        length1 = len(path)
+        if length1 >6:
+            for n in range(length1):
+                if n < length1 - 1:
+                    sn=path[n]//128
+                    sn1=path[n+1]//128
+                    if sn != sn1 and sn//4 == sn1//4: # and length1 <=6:
+                        # TODO: just print here now
+                        remove=1
+                        break
+                        #print('n', n, sn, sn1, sn//4, sn1//4)
+
+        # length limit
+        if remove ==0 and length1 <=8:
+            num+=1
+            path_log[str(test[0])+'_'+str(test[1])].append(path)
+        else:
+            print("remove", end= "" )
+
+        print(path, 'len=', len(path), "|", end="")
         for n in path:
             print(n//128, ',',end="")
         print()
-    #print("=====================", len(ret))
+    print("===================== get ", num, 'remove', test[2]-num)
+
+#print(path_log)
+
+
+link_pressure={}
+for sd in path_log:
+    for link in path_log[sd]:
+        length1=len(link)
+        for n in range(length1-1):
+            src=link[n]
+            dst=link[n+1]
+            key=str(src)+'_'+str(dst)
+            if key in link_pressure:
+                link_pressure[key] +=1
+            else:
+                link_pressure[key] =1
+
+print("link pressure", len(link_pressure), link_pressure)
+
+
+path_pressure={}
+for sd in path_log:
+    path_pressure[sd]=[]
+    for link in path_log[sd]:
+        pressure=[]
+        length1=len(link)
+        for n in range(length1-1):
+            src=link[n]
+            dst=link[n+1]
+            key=str(src)+'_'+str(dst)
+            pressure.append(link_pressure[key])
+
+        path_pressure[sd].append(pressure)
+
+
+print("path_pressure", len(path_pressure), path_pressure)
+
