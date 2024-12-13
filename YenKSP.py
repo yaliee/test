@@ -3,6 +3,7 @@ from networkx.classes.graph import Graph
 from heapq import heappop, heappush
 from collections import defaultdict
 import networkx as nx
+import multiprocessing
 
 def restore_path(source: Any, target: Any, prev: DefaultDict):
     path = []
@@ -235,6 +236,13 @@ class PathBuffer:
         return path
 
 
+def esp(G: Graph, test_cases, weight: str ="weight", shortest_path_func=bidirectional_dijkstra_with_builtin_heap):
+        #for test in test_cases:
+        print("iteration -=============************************************>", iteraton)
+        path_log[str(test[0])+'_'+str(test[1])]=[]
+        ret=yenksp(G, test[0], test[1], test[2], shortest_path_func=dijkstra_with_builtin_heap)
+        return ret
+
 # simple way
 #G  = nx.Graph()
 G  = nx.DiGraph()
@@ -302,7 +310,15 @@ for i in range(num_all_node):
 index1=0
 index2=0
 
-test_num_list=[1128,104,103,102,96,1256,1224]
+test_num_list=[1248,64,0]
+
+
+#rack 
+# 0~63  Dnode
+# L1 rail0 64,65,...,71
+# L1 rail1 72,73,...,79
+# L1 rail2 80,81,...,87
+# L1 rail3 88,89,...,95
 #for range_rack_n in range(0, num_all_node, num_per_rack_node):
 for n in range(rack_num):
     current_rack_node_range=node_list[(n)*num_per_rack_node:(n+1)*num_per_rack_node]
@@ -358,13 +374,12 @@ for n in range(rack_num):
             G2.add_edge(xx, yy, weight=1)
             G2.add_edge(yy, xx, weight=1)
 
-            print("conn rack", (xx)//128, xx%128, "to", (int)(yy)//128, yy%128, '|', xx, yy, "index1", index1, "index2", index2, m, n)
+            print("conn rack", (xx)//128, xx%128, "to", (int)(yy)//128, yy%128, '| id', xx, yy, "| index1", index1, "index2", index2, m, n)
             '''
             index1 = (index1+1)% num_l2_union_node
             index2 = (index2)% num_l2_union_node
             '''
-            #we should use the same rail, like first rail
-
+            #we should use the same rail, like rail0 in L318
             print(index1, index2, m, num_l2_union_node)
             index1 = (index1+1) % 8
             index2 = (index2) % 8
@@ -701,6 +716,8 @@ ep_comm=[
 [1823,1855,1887,1919,1951,1983,2015,2047],
 ]
 
+#orig
+'''
 test_cases=[]
 #note 64 between the comm get from 8k python shell, convert to 128
 for mesh in ep_comm:
@@ -711,17 +728,21 @@ for mesh in ep_comm:
                 dest = y%64 + y//64*128
                 test_cases.append((source, dest, 31))
 print("test case len", len(test_cases) )
+'''
 
+#small test
 test_cases=[]
-for mesh in ep_comm:
-    #print(mesh, mesh[::2])
+#limit_path_num=1
+for mesh in ep_comm: #[0:4]:
+    tmp=mesh[::2]
+    print("ep_comm", mesh, mesh[::2], ' | ', tmp[0]//64, tmp[1]//64, tmp[2]//64, tmp[3]//64)
     for x in mesh[::2]:
         for y in mesh[::2]:
             if x!=y and x//64 != y//64:
                 source = x%64 + x//64*128
                 dest = y%64 + y//64*128
-                test_cases.append((source, dest, 31))
-                print(source//128, dest//128)
+                test_cases.append((source, dest, 1))
+                #print('| ' , source//128, dest//128)
 print("test case len", len(test_cases) )
 
 #exit(0) 
@@ -744,8 +765,61 @@ test_cases=[
 ]
 '''
 
-iteraton=0
 path_log={}
+
+
+#multiprocess the test_cases
+num_threads=12
+limit_path_num=15
+limit_jump=8
+with multiprocessing.Pool(processes = num_threads) as pool:
+    input_arg_map=[]
+    for test in test_cases:#[0:16]:
+        arg=(G2, test[0], test[1], limit_path_num, "weight", dijkstra_with_builtin_heap)
+        input_arg_map.append(arg)
+
+    print(input_arg_map)
+    results = pool.starmap(yenksp, input_arg_map)
+    print(results)
+
+#parse result
+inter=0
+for ret in results:
+    num=0
+    path_log[str(test_cases[inter][0])+'_'+str(test_cases[inter][1])]=[]
+    for path in ret:
+        remove=0
+        length1 = len(path)
+        if length1 >6:
+            for n in range(length1):
+                if n < length1 - 1:
+                    sn=path[n]//128
+                    sn1=path[n+1]//128
+                    if sn != sn1 and sn//4 == sn1//4: # and length1 <=6:
+                        # TODO: just print here now
+                        remove=1
+                        break
+                        #print('n', n, sn, sn1, sn//4, sn1//4)
+
+        # length limit
+        if remove ==0 and length1 <= limit_jump:
+            num+=1
+            path_log[str(test_cases[inter][0])+'_'+str(test_cases[inter][1])].append(path)
+        else:
+            print("remove", end= "" )
+
+        print(path, 'len=', len(path), "|", end="")
+        for n in path:
+            print(n//128, ',',end="")
+        print()
+    print("===================== get ", num, 'remove', test[2]-num)
+    inter+=1
+
+
+
+'''
+#legacy single process mode
+iteraton=0
 for test in test_cases:
     iteraton+=1
     print("iteration -=============************************************>", iteraton)
@@ -781,8 +855,9 @@ for test in test_cases:
     print("===================== get ", num, 'remove', test[2]-num)
 
 #print(path_log)
+'''
 
-
+#get link pressure
 link_pressure={}
 for sd in path_log:
     for link in path_log[sd]:
@@ -816,3 +891,12 @@ for sd in path_log:
 
 print("path_pressure", len(path_pressure), path_pressure)
 
+for sd in path_pressure:
+    print("*", sd, len(path_log[sd]))
+    for path in path_log[sd]:
+        print(len(path), path, end=' ')
+        for link in path:
+            print( link//128, end=' ')
+        print()
+    for path in path_pressure[sd]:
+        print("    ",path)
