@@ -169,7 +169,7 @@ def yenksp(G: Graph, source: Any, target: Any, k: int, weight: str ="weight", sh
                                         ignore_nodes.add(sy)
 
 
-            # remove add EP mesh routing
+            #TODO remove add EP mesh routing
 
                             
             for i in range(1, len(prev_path)):
@@ -354,13 +354,17 @@ for n in range(rack_num):
     for nr in range(0, rail):
         for x in range(num_D_node + nr*d_columns, num_D_node+d_columns*(nr+1)):
             for y in range(num_D_node+ num_l1_union_node + nr*d_columns, num_D_node+ num_l1_union_node + d_columns*(nr+1)):
-                #print("conn", x, y)
-                G2.add_edge(x + n*num_per_rack_node, y + n*num_per_rack_node, weight=1)
-                G2.add_edge(y + n*num_per_rack_node, x + n*num_per_rack_node, weight=1)
+                src=x + n*num_per_rack_node
+                dst=y + n*num_per_rack_node
+                print("conn", x, y, 'rack', n, 'rail', nr, src, dst)
+                G2.add_edge(src,dst, weight=1)
+                G2.add_edge(dst,src, weight=1)
 
     #for test_num in test_num_list:
     #    print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
 
+
+    '''
     # 2D between rack for O
     L2_union_range=range(num_D_node+ num_l1_union_node, num_D_node+ num_l1_union_node + num_l2_union_node)
     L2_union_start=num_D_node+ num_l1_union_node
@@ -375,49 +379,44 @@ for n in range(rack_num):
             G2.add_edge(yy, xx, weight=1)
 
             print("conn rack", (xx)//128, xx%128, "to", (int)(yy)//128, yy%128, '| id', xx, yy, "| index1", index1, "index2", index2, m, n)
-            '''
-            index1 = (index1+1)% num_l2_union_node
-            index2 = (index2)% num_l2_union_node
-            '''
             #we should use the same rail, like rail0 in L318
             print(index1, index2, m, num_l2_union_node)
             index1 = (index1+1) % 8
             index2 = (index2) % 8
             print(index1, index2, m, num_l2_union_node)
-
     '''
-            for nrank in range(0, rack_num):
-                L1_start=nrank*num_per_rack_node + num_D_node
-                L2_start=nrank*num_per_rack_node + num_D_node + num_l1_union_node
 
-                for nr in range(0, rail):
-                    for x in range(L1_start+ nr*d_columns, L1_start+d_columns*(nr+1)):
-                        for y in range(L2_start + nr*d_columns, L2_start + d_columns*(nr+1)):
-    '''
-    # TODO, 1.5D
+# 2D between rack in mesh 0-1-2-3 4-5-6-7 10-11-12-13
 
+L2_UNION_RANGE=range(num_D_node+ num_l1_union_node, num_D_node+ num_l1_union_node + num_l2_union_node)
+L2_UNION_START=num_D_node+ num_l1_union_node
+
+for index in range(0, rack_num//(4*2)):
+    #loop 7 times for every 4 zhu
+    for ranks in range(0, rack_num,4):
+        for src in range(ranks, ranks+4):
+            start=(ranks+4*(index+1))%rack_num
+            end=ranks+4*(index+2)
+            if end > rack_num:
+                end= end%rack_num
+            print("start rack [", ranks, ranks+4, ']', index, 'to rack [', start, end, ']')
+
+            for dst in range(start, end):
+                src_union= src*128 + L2_UNION_START + index
+                dst_union= dst*128 + L2_UNION_START + index
+                #print(src, dst, src_union, dst_union)
+                G2.add_edge(src_union, dst_union, weight=1)
+                G2.add_edge(dst_union, src_union, weight=1)
+
+                if 99 in [src_union, dst_union]:
+                    print(index,"conn rack", src, 'src union', src_union, src_union%128, "\tTO rack", dst, 'dst_union', dst_union, dst_union%128)
+                #print("test1", 96, G2.in_edges(96), len(G2.in_edges(96)))
+
+test_num_list=[96,97,98,99,100,101,102,103]
 for test_num in test_num_list:
     print("test1", test_num, G2.in_edges(test_num), len(G2.in_edges(test_num)))
 
-'''
-# 查看图的节点
-print("图的节点:", G.nodes())
-
-# 查看图的边
-print("图的边:", G.edges())
-
-# 获取节点的邻居
-
-for i in range(num_D_node):
-    print("节点", i,"的邻居:", list(G.neighbors(i)), len(list(G.neighbors(i))))
-    #print("节点23的邻居:", list(G.neighbors(23)), len(list(G.neighbors(23))))
-
-shortest_path = nx.shortest_path(G, source=1, target=5, weight='weight')
-print("节点1到节点5的最短路径：", shortest_path)
-
-print(G.has_edge(1, 65))  
-print(G.has_edge(65, 1))  
-'''
+#exit(0)
 
 #for e in G.edges():
 #    print(e)
@@ -732,7 +731,6 @@ print("test case len", len(test_cases) )
 
 #small test
 test_cases=[]
-#limit_path_num=1
 for mesh in ep_comm: #[0:4]:
     tmp=mesh[::2]
     print("ep_comm", mesh, mesh[::2], ' | ', tmp[0]//64, tmp[1]//64, tmp[2]//64, tmp[3]//64)
@@ -744,7 +742,6 @@ for mesh in ep_comm: #[0:4]:
                 test_cases.append((source, dest, 1))
                 #print('| ' , source//128, dest//128)
 print("test case len", len(test_cases) )
-
 #exit(0) 
 
 #just for verify
@@ -757,25 +754,25 @@ print('0-1', n)
 
 '''
 test_cases=[
-(1,128,31),
-(1,256,31),
-(1,384,31),
+#(1,128,31),
+#(1,256,31),
+#(1,384,31),
 #(1025,128,61), 
 #(1089,128,31), 
+(3999,3871,31), 
 ]
 '''
 
 path_log={}
 
-
 #multiprocess the test_cases
-num_threads=12
-limit_path_num=15
-limit_jump=8
-with multiprocessing.Pool(processes = num_threads) as pool:
+NUM_THREADS=12
+LIMIT_PATH_NUM=28
+LIMIT_JUMP=LIMIT_PATH_NUM
+with multiprocessing.Pool(processes = NUM_THREADS) as pool:
     input_arg_map=[]
     for test in test_cases:#[0:16]:
-        arg=(G2, test[0], test[1], limit_path_num, "weight", dijkstra_with_builtin_heap)
+        arg=(G2, test[0], test[1], LIMIT_PATH_NUM, "weight", dijkstra_with_builtin_heap)
         input_arg_map.append(arg)
 
     print(input_arg_map)
@@ -802,7 +799,7 @@ for ret in results:
                         #print('n', n, sn, sn1, sn//4, sn1//4)
 
         # length limit
-        if remove ==0 and length1 <= limit_jump:
+        if remove ==0 and length1 <= LIMIT_JUMP:
             num+=1
             path_log[str(test_cases[inter][0])+'_'+str(test_cases[inter][1])].append(path)
         else:
@@ -814,8 +811,6 @@ for ret in results:
         print()
     print("===================== get ", num, 'remove', test[2]-num)
     inter+=1
-
-
 
 '''
 #legacy single process mode
